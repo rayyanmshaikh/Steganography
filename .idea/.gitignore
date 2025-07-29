@@ -1,0 +1,42 @@
+# Maven
+target/
+.mvn/wrapper/maven-wrapper.jar
+
+# IntelliJ IDEA
+.idea/
+*.iws
+*.iml
+*.ipr
+shelf/
+workspace.xml
+
+# Spring Tool Suite (STS)
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings
+.springBeans
+.sts4-cache
+
+# NetBeans
+nbproject/private/
+nbbuild/
+dist/
+nbdist/
+.nb-gradle/
+
+# Visual Studio Code
+.vscode/
+
+# Editor-specific
+httpRequests/
+
+# JetBrains Data Sources
+dataSources/
+dataSources.local.xml
+
+# Optional: ignore build dirs from other tools (if not used, can be removed)
+build/
+!**/src/main/**/build/
+!**/src/test/**/build/
