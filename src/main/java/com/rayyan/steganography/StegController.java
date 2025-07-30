@@ -61,13 +61,13 @@ public class StegController {
     }
 
     /**
-     * Verify input is within specified bounds
+     * Verify input
      *
      * @param image inputted image
      *
      * @throws IOException if input is invalid
      */
-    private static void verifyInput(MultipartFile image) throws IOException {
+    protected static void verifyInput(MultipartFile image) throws IOException {
         Tika tika = new Tika();
         if(image.getSize() > 100000) {
             throw new FileSizeLimitExceededException("Image size is greater than 10 MB", 100000, image.getSize());
@@ -77,7 +77,7 @@ public class StegController {
         }
     }
 
-    private static void verifyInput(MultipartFile image, String text) throws IOException {
+    protected static void verifyInput(MultipartFile image, String text) throws IOException {
         verifyInput(image);
 
         if(text.length() > getMaxStorableChars(image)) {
@@ -85,11 +85,11 @@ public class StegController {
         }
     }
 
-    private static int getMaxStorableChars(MultipartFile image) throws IOException {
+    protected static int getMaxStorableChars(MultipartFile image) throws IOException {
         BufferedImage file = ImageIO.read(image.getInputStream());
 
         if(file == null) {
-            throw new IOException("Invalid image image");
+            throw new IOException("Invalid image");
         }
 
         int pixels = file.getWidth() * file.getHeight();
