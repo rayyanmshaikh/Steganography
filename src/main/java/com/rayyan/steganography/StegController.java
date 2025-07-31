@@ -15,14 +15,13 @@ import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.Arrays;
+import java.util.*;
 
 @RestController
 @RequestMapping("/api")
 public class StegController {
 
-    private static ArrayList<String> mimes = new ArrayList<>(
+    private static final ArrayList<String> mimes = new ArrayList<>(
             Arrays.asList("image/png", "image/jpeg", "image/jpg")
     );
 
@@ -43,7 +42,13 @@ public class StegController {
 
         BufferedImage img;
         try {
-            img = ImageIO.read(image.getInputStream());
+            BufferedImage orig = ImageIO.read(image.getInputStream());
+            img = new BufferedImage(
+                    orig.getWidth(),
+                    orig.getHeight(),
+                    BufferedImage.TYPE_INT_RGB
+            );
+            img.getGraphics().drawImage(orig, 0, 0, null);
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         }
@@ -53,16 +58,15 @@ public class StegController {
         String contentType = image.getContentType();
 
         assert contentType != null;
-        String formatName = contentType.split("/")[1];
 
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        ImageIO.write(encoded, formatName, baos);
+        ImageIO.write(encoded, "png", baos);
         byte[] imageBytes = baos.toByteArray();
 
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.parseMediaType(contentType));
         headers.setContentLength(imageBytes.length);
-        headers.setContentDispositionFormData("attachment", "encoded." + formatName);
+        headers.setContentDispositionFormData("attachment", "encoded.png");
 
         return new ResponseEntity<>(imageBytes, headers, HttpStatus.OK);
     }
@@ -74,16 +78,22 @@ public class StegController {
      * 
      * @return text encoded within the image
      */
-    @PostMapping("/decodeTI")
-    public ResponseEntity<String> decodeTextInImage(@RequestBody MultipartFile image) throws IOException {
-        // Text is decoded and returned
+    @PostMapping(value = "/decodeTI", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<String> decodeTextInImage(@RequestPart("image") MultipartFile image) throws IOException {
         try {
             verifyInput(image);
         } catch (IOException e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         }
 
-        return ResponseEntity.ok("message");
+        BufferedImage img;
+        try {
+            img = ImageIO.read(image.getInputStream());
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+
+        return ResponseEntity.ok(getDecodedImage(img));
     }
 
     private static BufferedImage getEncodedImage(BufferedImage img, String text) {
@@ -134,6 +144,35 @@ public class StegController {
         }
 
         return encoded;
+    }
+
+    private static String getDecodedImage(BufferedImage img) {
+        StringBuilder bits = new StringBuilder();
+        for (int y = 0; y < img.getHeight(); y++) {
+            for (int x = 0; x < img.getWidth(); x++) {
+                int rgb = img.getRGB(x, y);
+
+                int r = (rgb >> 16) & 0xFF;
+                int g = (rgb >> 8) & 0xFF;
+                int b = rgb & 0xFF;
+
+                bits.append(r & 1);
+                bits.append(g & 1);
+                bits.append(b & 1);
+
+                if (bits.length() >= 8 && bits.substring(bits.length() - 8).equals("00000000")) {
+                    break;
+                }
+            }
+        }
+
+        StringBuilder message = new StringBuilder();
+        for (int i = 0; i < bits.length() - 8; i += 8) {
+            int charCode = Integer.parseInt(bits.substring(i, i + 8), 2);
+            message.append((char) charCode);
+        }
+
+        return message.toString();
     }
 
     private static StringBuilder convertTextToBytes(String message) {

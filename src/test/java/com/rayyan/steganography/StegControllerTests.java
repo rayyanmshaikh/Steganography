@@ -20,6 +20,7 @@ import java.nio.file.Paths;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @SpringBootTest
@@ -59,6 +60,20 @@ public class StegControllerTests {
     }
 
     @Test
+    public void testDecodeTextInImage() throws Exception {
+        if (!Files.exists(Paths.get("src/test/resources/images_encoded/encoded_normal.png"))) {
+            throw new Exception("encoded_normal.png is not present in resources");
+        }
+
+        MockMultipartFile image = createInputFile("/images_encoded/encoded_normal.png");
+        String expected = "Hello, this is a test message!";
+
+        mockMvc.perform(multipart("/api/decodeTI").file(image))
+                .andExpect(status().isOk())
+                .andExpect(content().string(expected));
+    }
+
+    @Test
     public void testInputVerificationSuccess() throws IOException {
         MultipartFile multipartFile = createInputFile("/images/normal.jpg");
 
@@ -89,10 +104,13 @@ public class StegControllerTests {
         InputStream inputStream = getClass().getResourceAsStream(input);
         assertNotNull(inputStream, "Image not found");
 
+        String filename = Paths.get(input).getFileName().toString();
+        String contentType = filename.endsWith(".png") ? "image/png" : "image/jpeg";
+
         return new MockMultipartFile(
                 "image",
                 input.split("/")[2],
-                "image/jpeg",
+                contentType,
                 inputStream
         );
     }
