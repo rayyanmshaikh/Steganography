@@ -64,7 +64,7 @@ public class StegController {
         byte[] imageBytes = baos.toByteArray();
 
         HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.parseMediaType(contentType));
+        headers.setContentType(MediaType.IMAGE_PNG);
         headers.setContentLength(imageBytes.length);
         headers.setContentDispositionFormData("attachment", "encoded.png");
 
@@ -148,6 +148,7 @@ public class StegController {
 
     private static String getDecodedImage(BufferedImage img) {
         StringBuilder bits = new StringBuilder();
+        outer:
         for (int y = 0; y < img.getHeight(); y++) {
             for (int x = 0; x < img.getWidth(); x++) {
                 int rgb = img.getRGB(x, y);
@@ -157,12 +158,13 @@ public class StegController {
                 int b = rgb & 0xFF;
 
                 bits.append(r & 1);
-                bits.append(g & 1);
-                bits.append(b & 1);
+                if (checkTerminator(bits)) break outer;
 
-                if (bits.length() >= 8 && bits.substring(bits.length() - 8).equals("00000000")) {
-                    break;
-                }
+                bits.append(g & 1);
+                if (checkTerminator(bits)) break outer;
+
+                bits.append(b & 1);
+                if (checkTerminator(bits)) break outer;
             }
         }
 
@@ -181,10 +183,14 @@ public class StegController {
         byte[] bytes = message.getBytes(StandardCharsets.UTF_8);
         StringBuilder binary = new StringBuilder();
         for (byte b : bytes) {
-            binary.append(String.format("%8s", Integer.toBinaryString(b * 0xFF)).replace(' ', '0'));
+            binary.append(String.format("%8s", Integer.toBinaryString(b & 0xFF)).replace(' ', '0'));
         }
 
         return binary;
+    }
+
+    private static boolean checkTerminator(StringBuilder bits) {
+        return bits.length() >= 8 && bits.substring(bits.length() - 8).equals("00000000");
     }
 
     /**
