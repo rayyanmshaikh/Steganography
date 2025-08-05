@@ -11,7 +11,6 @@ import org.springframework.web.multipart.MultipartFile;
 
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
-import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
@@ -19,7 +18,6 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.junit.jupiter.api.Assumptions.assumeTrue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -30,145 +28,81 @@ public class StegControllerTests {
 
     @Autowired
     private MockMvc mockMvc;
+    
+    private static final String normalImg = "/images/normal.jpg";
+    
+    private static final String largeImg = "/images/15MB.jpg";
+    
+    private static final Path largeText = Path.of("src/test/resources/text/large_text.txt");
+
+    private static final Path exceedsLimitText = Path.of("src/test/resources/text/exceeds_normal_limit.txt");
+
+    private static final Path normalText = Path.of("src/test/resources/text/normal_limit.txt");
+
+    private static final String testMsg = "Hello, this is a test message!";
 
     @Test
     public void testEncodeTextInImage() throws Exception {
-        cleanUpOutputFile("src/test/resources/images_encoded/encoded_normal.png");
-        MockMultipartFile image = createInputFile("/images/normal.jpg");
-
-        String textToEncode = "Hello, this is a test message!";
-        MockMultipartFile text = new MockMultipartFile(
-                "text",
-                "",
-                "text/plain",
-                textToEncode.getBytes()
-        );
-
-        MvcResult result = mockMvc.perform(
-                        multipart("/api/encodeTI")
-                                .file(image)
-                                .file(text)
-                ).andExpect(status().isOk())
-                .andReturn();
-
-        byte[] encodedImageBytes = result.getResponse().getContentAsByteArray();
-
-        Path outputPath = Paths.get("src/test/resources/images_encoded/encoded_normal.png");
-        Files.createDirectories(outputPath.getParent());
-        Files.write(outputPath, encodedImageBytes);
-
-        assertTrue(Files.exists(outputPath));
+        byte[] encoded = encodeImageWithText(normalImg, testMsg);
+        assertNotNull(encoded);
+        assertTrue(encoded.length > 0);
     }
 
     @Test
     public void testDecodeTextInImage() throws Exception {
-        Path encodedPath = Paths.get("src/test/resources/images_encoded/encoded_normal.png");
-        assumeTrue(Files.exists(encodedPath), "encoded_normal.png must exist");
-
-        MockMultipartFile image = createInputFile("/images_encoded/encoded_normal.png");
-        String expected = "Hello, this is a test message!";
+        byte[] encoded = encodeImageWithText(normalImg, testMsg);
+        MockMultipartFile image = new MockMultipartFile("image", "encoded.png", "image/png", encoded);
 
         mockMvc.perform(multipart("/api/decodeTI").file(image))
                 .andExpect(status().isOk())
-                .andExpect(content().string(expected));
+                .andExpect(content().string(testMsg));
     }
 
     @Test
     public void testEncodeLargeTextInImage() throws Exception {
-        cleanUpOutputFile("src/test/resources/images_encoded/encoded_normal.png");
-        MockMultipartFile image = createInputFile("/images/normal.jpg");
+        String textToEncode = Files.readString(largeText);
+        byte[] encoded = encodeImageWithText(normalImg, textToEncode);
 
-        String textToEncode = Files.readString(Path.of("src/test/resources/text/large_text.txt"));
-        MockMultipartFile text = new MockMultipartFile(
-                "text",
-                "",
-                "text/plain",
-                textToEncode.getBytes()
-        );
-
-        MvcResult result = mockMvc.perform(
-                        multipart("/api/encodeTI")
-                                .file(image)
-                                .file(text)
-                ).andExpect(status().isOk())
-                .andReturn();
-
-        byte[] encodedImageBytes = result.getResponse().getContentAsByteArray();
-
-        Path outputPath = Paths.get("src/test/resources/images_encoded/encoded_large_normal.png");
-        Files.createDirectories(outputPath.getParent());
-        Files.write(outputPath, encodedImageBytes);
-
-        assertTrue(Files.exists(outputPath));
+        assertNotNull(encoded);
+        assertTrue(encoded.length > 0);
     }
 
     @Test
     public void testDecodeLargeTextInImage() throws Exception {
-        Path encodedPath = Paths.get("src/test/resources/images_encoded/encoded_large_normal.png");
-        assumeTrue(Files.exists(encodedPath), "encoded_large_normal.png must exist");
-
-        MockMultipartFile image = createInputFile("/images_encoded/encoded_large_normal.png");
-        String expected = Files.readString(Path.of("src/test/resources/text/large_text.txt"));
+        String textToEncode = Files.readString(largeText);
+        byte[] encoded = encodeImageWithText(normalImg, textToEncode);
+        MockMultipartFile image = new MockMultipartFile("image", "encoded.png", "image/png", encoded);
 
         mockMvc.perform(multipart("/api/decodeTI").file(image))
                 .andExpect(status().isOk())
-                .andExpect(content().string(expected));
+                .andExpect(content().string(textToEncode));
     }
 
     @Test
     public void testEncodeLimitTextInImage() throws Exception {
-        cleanUpOutputFile("src/test/resources/images_encoded/encoded_normal.png");
-        MockMultipartFile image = createInputFile("/images/normal.jpg");
+        String textToEncode = Files.readString(normalText);
+        byte[] encoded = encodeImageWithText(normalImg, textToEncode);
 
-        String textToEncode = Files.readString(Path.of("src/test/resources/text/normal_limit.txt"));
-        MockMultipartFile text = new MockMultipartFile(
-                "text",
-                "",
-                "text/plain",
-                textToEncode.getBytes()
-        );
-
-        MvcResult result = mockMvc.perform(
-                        multipart("/api/encodeTI")
-                                .file(image)
-                                .file(text)
-                ).andExpect(status().isOk())
-                .andReturn();
-
-        byte[] encodedImageBytes = result.getResponse().getContentAsByteArray();
-
-        Path outputPath = Paths.get("src/test/resources/images_encoded/encoded_normal_limit.png");
-        Files.createDirectories(outputPath.getParent());
-        Files.write(outputPath, encodedImageBytes);
-
-        assertTrue(Files.exists(outputPath));
+        assertNotNull(encoded);
+        assertTrue(encoded.length > 0);
     }
 
     @Test
     public void testDecodeLimitTextInImage() throws Exception {
-        Path encodedPath = Paths.get("src/test/resources/images_encoded/encoded_normal_limit.png");
-        assumeTrue(Files.exists(encodedPath), "encoded_normal_limit.png must exist");
-
-        MockMultipartFile image = createInputFile("/images_encoded/encoded_normal_limit.png");
-        String expected = Files.readString(Path.of("src/test/resources/text/normal_limit.txt"));
+        String textToEncode = Files.readString(normalText);
+        byte[] encoded = encodeImageWithText(normalImg, textToEncode);
+        MockMultipartFile image = new MockMultipartFile("image", "encoded.png", "image/png", encoded);
 
         mockMvc.perform(multipart("/api/decodeTI").file(image))
                 .andExpect(status().isOk())
-                .andExpect(content().string(expected));
+                .andExpect(content().string(textToEncode));
     }
 
     @Test
     public void testEncodeExceedLimitTextInImage() throws Exception {
-        cleanUpOutputFile("src/test/resources/images_encoded/encoded_normal.png");
-        MockMultipartFile image = createInputFile("/images/normal.jpg");
-
-        String textToEncode = Files.readString(Path.of("src/test/resources/text/exceeds_normal_limit.txt"));
-        MockMultipartFile text = new MockMultipartFile(
-                "text",
-                "",
-                "text/plain",
-                textToEncode.getBytes()
-        );
+        MockMultipartFile image = createInputFile(normalImg);
+        String textToEncode = Files.readString(exceedsLimitText);
+        MockMultipartFile text = new MockMultipartFile("text", "", "text/plain", textToEncode.getBytes());
 
         mockMvc.perform(
                         multipart("/api/encodeTI")
@@ -180,14 +114,13 @@ public class StegControllerTests {
 
     @Test
     public void testInputVerificationSuccess() throws IOException {
-        MultipartFile multipartFile = createInputFile("/images/normal.jpg");
-
+        MultipartFile multipartFile = createInputFile(normalImg);
         StegController.verifyInput(multipartFile);
     }
 
     @Test
     public void testInputVerificationFails() throws IOException {
-        MultipartFile multipartFile = createInputFile("/images/15MB.jpg");
+        MultipartFile multipartFile = createInputFile(largeImg);
 
         assertThrows(IOException.class, () -> {
             StegController.verifyInput(multipartFile);
@@ -196,7 +129,7 @@ public class StegControllerTests {
 
     @Test
     public void testMaxStorableChars() throws IOException {
-        MultipartFile multipartFile = createInputFile("/images/normal.jpg");
+        MultipartFile multipartFile = createInputFile(normalImg);
 
         BufferedImage bufferedImage = ImageIO.read(multipartFile.getInputStream());
         int expectedPixels = bufferedImage.getHeight() * bufferedImage.getWidth();
@@ -205,6 +138,8 @@ public class StegControllerTests {
         assertEquals(expectedChars, StegController.getMaxStorableChars(multipartFile), "Max storable chars did not match expected value.");
     }
 
+    // Helpers
+
     private MockMultipartFile createInputFile(String input) throws IOException {
         InputStream inputStream = getClass().getResourceAsStream(input);
         assertNotNull(inputStream, "Image not found");
@@ -212,21 +147,20 @@ public class StegControllerTests {
         String filename = Paths.get(input).getFileName().toString();
         String contentType = filename.endsWith(".png") ? "image/png" : "image/jpeg";
 
-        return new MockMultipartFile(
-                "image",
-                input.split("/")[2],
-                contentType,
-                inputStream
-        );
+        return new MockMultipartFile("image", filename, contentType, inputStream);
     }
 
-    void cleanUpOutputFile(String path) {
-        File file = new File(path);
-        if (file.exists()) {
-            boolean deleted = file.delete();
-            if (!deleted) {
-                System.err.println("Warning: Could not delete existing output file.");
-            }
-        }
+    private byte[] encodeImageWithText(String imagePath, String message) throws Exception {
+        MockMultipartFile image = createInputFile(imagePath);
+        MockMultipartFile text = new MockMultipartFile("text", "", "text/plain", message.getBytes());
+
+        MvcResult result = mockMvc.perform(
+                multipart("/api/encodeTI")
+                        .file(image)
+                        .file(text)
+        ).andExpect(status().isOk()).andReturn();
+
+        return result.getResponse().getContentAsByteArray();
     }
 }
+
