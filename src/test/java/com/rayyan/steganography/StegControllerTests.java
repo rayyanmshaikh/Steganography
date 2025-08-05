@@ -133,7 +133,7 @@ public class StegControllerTests {
 
         BufferedImage bufferedImage = ImageIO.read(multipartFile.getInputStream());
         int expectedPixels = bufferedImage.getHeight() * bufferedImage.getWidth();
-        int expectedChars = ((expectedPixels * 3) / 8) - 8;
+        int expectedChars = ((expectedPixels * 3) / 8) - 12;
 
         assertEquals(expectedChars, StegController.getMaxStorableChars(multipartFile), "Max storable chars did not match expected value.");
     }
