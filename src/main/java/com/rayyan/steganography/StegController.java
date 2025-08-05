@@ -29,6 +29,8 @@ public class StegController {
             Arrays.asList("image/png", "image/jpeg", "image/jpg")
     );
 
+    private static final String MAGIC_HEADER = "STEG";
+
     /**
      * Encodes the given text into the provided image using LSB (Least Significant Bit) steganography.
      *
@@ -100,48 +102,48 @@ public class StegController {
             return ResponseEntity.badRequest().body(e.getMessage());
         }
 
-        return ResponseEntity.ok(getDecodedImage(img));
+        String decoded = getDecodedImage(img).replace("\0", "");
+
+        if (!decoded.startsWith(MAGIC_HEADER)) {
+            return ResponseEntity.status(HttpStatus.NO_CONTENT).body("No hidden text found");
+        }
+
+        String message = decoded.substring(MAGIC_HEADER.length());
+        return ResponseEntity.ok(message);
     }
 
-    /**
-     * Encodes the provided text into the given image using LSB steganography.
-     *
-     * @param img  BufferedImage object to hide the message in.
-     * @param text Text message to encode.
-     * @return A new BufferedImage containing the encoded message.
-     */
     private static BufferedImage getEncodedImage(BufferedImage img, String text) {
-        StringBuilder bits = convertTextToBytes(text);
+        StringBuilder bits = convertTextToBytes(MAGIC_HEADER + text);
 
         int msgIdx = 0;
         int height = img.getHeight();
         int width = img.getWidth();
         BufferedImage encoded = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
 
-        for(int y = 0; y < img.getHeight(); y++) {
-            for(int x = 0; x < img.getWidth(); x++) {
+        for (int y = 0; y < img.getHeight(); y++) {
+            for (int x = 0; x < img.getWidth(); x++) {
                 int rgb = img.getRGB(x, y);
 
                 int r = (rgb >> 16) & 0xff;
                 int g = (rgb >> 8) & 0xff;
                 int b = rgb & 0xff;
 
-                if(msgIdx < bits.length()) {
+                if (msgIdx < bits.length()) {
                     r = (r & 0xFE) | (bits.charAt(msgIdx++) - '0');
                 }
 
-                if(msgIdx < bits.length()) {
+                if (msgIdx < bits.length()) {
                     g = (g & 0xFE) | (bits.charAt(msgIdx++) - '0');
                 }
 
-                if(msgIdx < bits.length()) {
+                if (msgIdx < bits.length()) {
                     b = (b & 0xFE) | (bits.charAt(msgIdx++) - '0');
                 }
 
                 int newRGB = (r << 16) | (g << 8) | b;
                 encoded.setRGB(x, y, newRGB);
 
-                if(msgIdx >= bits.length()) {
+                if (msgIdx >= bits.length()) {
                     for (int i = x + 1; i < width; i++) {
                         encoded.setRGB(i, y, img.getRGB(i, y));
                     }
@@ -233,11 +235,10 @@ public class StegController {
      */
     protected static void verifyInput(MultipartFile image) throws IOException {
         Tika tika = new Tika();
-        if(image.getSize() > 10000000) {
+        if (image.getSize() > 10000000) {
             System.out.println(image.getSize());
             throw new FileSizeLimitExceededException("Image size is greater than 10 MB", image.getSize(), 10000000);
-        }
-        else if(!mimes.contains(tika.detect(image.getInputStream()))) {
+        } else if (!mimes.contains(tika.detect(image.getInputStream()))) {
             throw new FileUploadException("Image must be one of: " + mimes);
         }
     }
@@ -253,7 +254,7 @@ public class StegController {
     protected static void verifyInput(MultipartFile image, String text) throws IOException {
         verifyInput(image);
 
-        if(text.length() > getMaxStorableChars(image)) {
+        if (text.length() > getMaxStorableChars(image)) {
             throw new IOException("Text length is greater than max storable chars");
         }
     }
@@ -268,12 +269,12 @@ public class StegController {
     protected static int getMaxStorableChars(MultipartFile image) throws IOException {
         BufferedImage file = ImageIO.read(image.getInputStream());
 
-        if(file == null) {
+        if (file == null) {
             throw new IOException("Invalid image");
         }
 
         int pixels = file.getWidth() * file.getHeight();
 
-        return ((pixels * 3) / 8) - 8;
+        return ((pixels * 3) / 8) - 12;
     }
 }
