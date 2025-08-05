@@ -17,6 +17,10 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
 
+/**
+ * REST controller for handling image steganography operations.
+ * Provides endpoints for encoding text into an image and decoding text from an image.
+ */
 @RestController
 @RequestMapping("/api")
 public class StegController {
@@ -26,11 +30,13 @@ public class StegController {
     );
 
     /**
-     * Intake text and encode it into an inputted image through LSB
+     * Encodes the given text into the provided image using LSB (Least Significant Bit) steganography.
      *
-     * @param image inputted image image
-     *
-     * @return original image encoded with text
+     * @param image Multipart image file to encode the text into.
+     * @param text  The text message to hide inside the image.
+     * @return A ResponseEntity containing the encoded image as a downloadable PNG file,
+     *         or an error message if the input is invalid.
+     * @throws IOException if an error occurs during processing.
      */
     @PostMapping(value = "/encodeTI", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<?> encodeTextInImage(@RequestPart("image") MultipartFile image, @RequestPart("text") String text) throws IOException {
@@ -72,11 +78,12 @@ public class StegController {
     }
 
     /**
-     * Intake an encoded image and output the text encoded within
+     * Decodes and retrieves hidden text from the provided steganographic image.
      *
-     * @param image inputted image
-     * 
-     * @return text encoded within the image
+     * @param image Multipart image file containing hidden text.
+     * @return A ResponseEntity containing the decoded text,
+     *         or an error message if the input is invalid.
+     * @throws IOException if an error occurs during decoding.
      */
     @PostMapping(value = "/decodeTI", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<String> decodeTextInImage(@RequestPart("image") MultipartFile image) throws IOException {
@@ -96,6 +103,13 @@ public class StegController {
         return ResponseEntity.ok(getDecodedImage(img));
     }
 
+    /**
+     * Encodes the provided text into the given image using LSB steganography.
+     *
+     * @param img  BufferedImage object to hide the message in.
+     * @param text Text message to encode.
+     * @return A new BufferedImage containing the encoded message.
+     */
     private static BufferedImage getEncodedImage(BufferedImage img, String text) {
         StringBuilder bits = convertTextToBytes(text);
 
@@ -146,6 +160,12 @@ public class StegController {
         return encoded;
     }
 
+    /**
+     * Extracts hidden text from the given steganographic image using LSB decoding.
+     *
+     * @param img BufferedImage object with an embedded hidden message.
+     * @return The decoded text message from the image.
+     */
     private static String getDecodedImage(BufferedImage img) {
         StringBuilder bits = new StringBuilder();
         outer:
@@ -177,6 +197,12 @@ public class StegController {
         return message.toString();
     }
 
+    /**
+     * Converts the input message to a binary string representation with a null-terminated ending.
+     *
+     * @param message The input message to be converted.
+     * @return A StringBuilder containing the binary representation of the message.
+     */
     private static StringBuilder convertTextToBytes(String message) {
         message += "\0\0\0\0\0\0\0\0";
 
@@ -189,16 +215,21 @@ public class StegController {
         return binary;
     }
 
+    /**
+     * Checks if the last 8 bits in the binary string represent the null character terminator.
+     *
+     * @param bits StringBuilder containing binary bits of the message.
+     * @return True if the last 8 bits are all zeros, indicating end of message; otherwise false.
+     */
     private static boolean checkTerminator(StringBuilder bits) {
         return bits.length() >= 8 && bits.substring(bits.length() - 8).equals("00000000");
     }
 
     /**
-     * Verify input
+     * Validates the input image for size and MIME type constraints.
      *
-     * @param image inputted image
-     *
-     * @throws IOException if input is invalid
+     * @param image Multipart image file to validate.
+     * @throws IOException if the image is too large or has an unsupported MIME type.
      */
     protected static void verifyInput(MultipartFile image) throws IOException {
         Tika tika = new Tika();
@@ -211,6 +242,14 @@ public class StegController {
         }
     }
 
+    /**
+     * Validates both the image and the text for encoding.
+     * Ensures the text can be fully stored in the image using LSB encoding.
+     *
+     * @param image Multipart image file to validate.
+     * @param text  The text to validate against the image capacity.
+     * @throws IOException if the image is invalid or the text exceeds the storable limit.
+     */
     protected static void verifyInput(MultipartFile image, String text) throws IOException {
         verifyInput(image);
 
@@ -219,6 +258,13 @@ public class StegController {
         }
     }
 
+    /**
+     * Calculates the maximum number of characters that can be stored in the given image using LSB encoding.
+     *
+     * @param image Multipart image file used for calculating capacity.
+     * @return The maximum number of characters that can be stored.
+     * @throws IOException if the image is invalid or unreadable.
+     */
     protected static int getMaxStorableChars(MultipartFile image) throws IOException {
         BufferedImage file = ImageIO.read(image.getInputStream());
 
@@ -230,5 +276,4 @@ public class StegController {
 
         return ((pixels * 3) / 8) - 8;
     }
-
 }
