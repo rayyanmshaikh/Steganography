@@ -3,6 +3,8 @@ package com.rayyan.steganography;
 import org.apache.tika.Tika;
 import org.apache.tomcat.util.http.fileupload.FileUploadException;
 import org.apache.tomcat.util.http.fileupload.impl.FileSizeLimitExceededException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -30,6 +32,8 @@ public class StegController {
     );
 
     private static final String MAGIC_HEADER = "STEG";
+
+    private static final Logger logger = LoggerFactory.getLogger(StegController.class);
 
     /**
      * Encodes the given text into the provided image using LSB (Least Significant Bit) steganography.
@@ -67,6 +71,12 @@ public class StegController {
 
         assert contentType != null;
 
+        String mimeType = image.getContentType();
+        if (!mimes.contains(mimeType)) {
+            throw new IllegalArgumentException("Unsupported file type: " + mimeType);
+        }
+
+        logger.info("Writing encoded image");
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         ImageIO.write(encoded, "png", baos);
         byte[] imageBytes = baos.toByteArray();
@@ -76,6 +86,7 @@ public class StegController {
         headers.setContentLength(imageBytes.length);
         headers.setContentDispositionFormData("attachment", "encoded.png");
 
+        logger.info("Sending response");
         return new ResponseEntity<>(imageBytes, headers, HttpStatus.OK);
     }
 
@@ -105,14 +116,17 @@ public class StegController {
         String decoded = getDecodedImage(img).replace("\0", "");
 
         if (!decoded.startsWith(MAGIC_HEADER)) {
+            logger.info("No encoded message found");
             return ResponseEntity.status(HttpStatus.NO_CONTENT).body("No hidden text found");
         }
 
+        logger.info("Returning decoded message");
         String message = decoded.substring(MAGIC_HEADER.length());
         return ResponseEntity.ok(message);
     }
 
     private static BufferedImage getEncodedImage(BufferedImage img, String text) {
+        logger.info("Encoding image");
         StringBuilder bits = convertTextToBytes(MAGIC_HEADER + text);
 
         int msgIdx = 0;
@@ -154,11 +168,13 @@ public class StegController {
                         }
                     }
 
+                    logger.info("Returning encoded image");
                     return encoded;
                 }
             }
         }
 
+        logger.info("Returning encoded image");
         return encoded;
     }
 
@@ -169,6 +185,7 @@ public class StegController {
      * @return The decoded text message from the image.
      */
     private static String getDecodedImage(BufferedImage img) {
+        logger.info("Decoding encoded image");
         StringBuilder bits = new StringBuilder();
         outer:
         for (int y = 0; y < img.getHeight(); y++) {
@@ -196,6 +213,7 @@ public class StegController {
             message.append((char) charCode);
         }
 
+        logger.info("Returning decoded message");
         return message.toString();
     }
 
@@ -206,6 +224,7 @@ public class StegController {
      * @return A StringBuilder containing the binary representation of the message.
      */
     private static StringBuilder convertTextToBytes(String message) {
+        logger.info("Text to bytes");
         message += "\0\0\0\0\0\0\0\0";
 
         byte[] bytes = message.getBytes(StandardCharsets.UTF_8);
@@ -214,6 +233,7 @@ public class StegController {
             binary.append(String.format("%8s", Integer.toBinaryString(b & 0xFF)).replace(' ', '0'));
         }
 
+        logger.info("Returning binary message");
         return binary;
     }
 
@@ -235,10 +255,11 @@ public class StegController {
      */
     protected static void verifyInput(MultipartFile image) throws IOException {
         Tika tika = new Tika();
-        if (image.getSize() > 10000000) {
-            System.out.println(image.getSize());
-            throw new FileSizeLimitExceededException("Image size is greater than 10 MB", image.getSize(), 10000000);
+        if (image.getSize() > 50000000) {
+            logger.warn("Image is greater than 10 MB");
+            throw new FileSizeLimitExceededException("Image size is greater than 50 MB", image.getSize(), 50000000);
         } else if (!mimes.contains(tika.detect(image.getInputStream()))) {
+            logger.warn("Image type not valid: {}", tika.detect(image.getInputStream()));
             throw new FileUploadException("Image must be one of: " + mimes);
         }
     }
@@ -255,6 +276,7 @@ public class StegController {
         verifyInput(image);
 
         if (text.length() > getMaxStorableChars(image)) {
+            logger.warn("Text larger than storable chars");
             throw new IOException("Text length is greater than max storable chars");
         }
     }
