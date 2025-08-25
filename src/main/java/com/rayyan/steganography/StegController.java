@@ -67,15 +67,6 @@ public class StegController {
 
         BufferedImage encoded = getEncodedImage(img, text);
 
-        String contentType = image.getContentType();
-
-        assert contentType != null;
-
-        String mimeType = image.getContentType();
-        if (!mimes.contains(mimeType)) {
-            throw new IllegalArgumentException("Unsupported file type: " + mimeType);
-        }
-
         logger.info("Writing encoded image");
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         ImageIO.write(encoded, "png", baos);
@@ -168,7 +159,6 @@ public class StegController {
                         }
                     }
 
-                    logger.info("Returning encoded image");
                     return encoded;
                 }
             }
@@ -256,7 +246,7 @@ public class StegController {
     protected static void verifyInput(MultipartFile image) throws IOException {
         Tika tika = new Tika();
         if (image.getSize() > 50000000) {
-            logger.warn("Image is greater than 10 MB");
+            logger.warn("Image is greater than 50 MB");
             throw new FileSizeLimitExceededException("Image size is greater than 50 MB", image.getSize(), 50000000);
         } else if (!mimes.contains(tika.detect(image.getInputStream()))) {
             logger.warn("Image type not valid: {}", tika.detect(image.getInputStream()));

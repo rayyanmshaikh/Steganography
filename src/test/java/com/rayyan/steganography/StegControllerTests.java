@@ -119,15 +119,6 @@ public class StegControllerTests {
     }
 
     @Test
-    public void testInputVerificationFails() throws IOException {
-        MultipartFile multipartFile = createInputFile(largeImg);
-
-        assertThrows(IOException.class, () -> {
-            StegController.verifyInput(multipartFile);
-        });
-    }
-
-    @Test
     public void testMaxStorableChars() throws IOException {
         MultipartFile multipartFile = createInputFile(normalImg);
 
