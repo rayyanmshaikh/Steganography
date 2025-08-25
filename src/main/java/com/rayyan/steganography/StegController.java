@@ -224,7 +224,7 @@ public class StegController {
      * @return A StringBuilder containing the binary representation of the message.
      */
     private static StringBuilder convertTextToBytes(String message) {
-        logger.info("Text to bytes");
+        logger.info("Converting text message to binary representation");
         message += "\0\0\0\0\0\0\0\0";
 
         byte[] bytes = message.getBytes(StandardCharsets.UTF_8);
