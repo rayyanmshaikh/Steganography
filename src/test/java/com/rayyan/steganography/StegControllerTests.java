@@ -7,16 +7,11 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
-import org.springframework.web.multipart.MultipartFile;
 
-import javax.imageio.ImageIO;
-import java.awt.image.BufferedImage;
-import java.io.IOException;
-import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 
+import static com.rayyan.steganography.TestUtils.createInputFile;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
@@ -30,9 +25,7 @@ public class StegControllerTests {
     private MockMvc mockMvc;
     
     private static final String normalImg = "/images/normal.jpg";
-    
-    private static final String largeImg = "/images/15MB.jpg";
-    
+
     private static final Path largeText = Path.of("src/test/resources/text/large_text.txt");
 
     private static final Path exceedsLimitText = Path.of("src/test/resources/text/exceeds_normal_limit.txt");
@@ -112,34 +105,7 @@ public class StegControllerTests {
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("Text length is greater than max storable chars")));
     }
 
-    @Test
-    public void testInputVerificationSuccess() throws IOException {
-        MultipartFile multipartFile = createInputFile(normalImg);
-        StegController.verifyInput(multipartFile);
-    }
-
-    @Test
-    public void testMaxStorableChars() throws IOException {
-        MultipartFile multipartFile = createInputFile(normalImg);
-
-        BufferedImage bufferedImage = ImageIO.read(multipartFile.getInputStream());
-        int expectedPixels = bufferedImage.getHeight() * bufferedImage.getWidth();
-        int expectedChars = ((expectedPixels * 3) / 8) - 12;
-
-        assertEquals(expectedChars, StegController.getMaxStorableChars(multipartFile), "Max storable chars did not match expected value.");
-    }
-
     // Helpers
-
-    private MockMultipartFile createInputFile(String input) throws IOException {
-        InputStream inputStream = getClass().getResourceAsStream(input);
-        assertNotNull(inputStream, "Image not found");
-
-        String filename = Paths.get(input).getFileName().toString();
-        String contentType = filename.endsWith(".png") ? "image/png" : "image/jpeg";
-
-        return new MockMultipartFile("image", filename, contentType, inputStream);
-    }
 
     private byte[] encodeImageWithText(String imagePath, String message) throws Exception {
         MockMultipartFile image = createInputFile(imagePath);
