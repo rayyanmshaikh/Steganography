@@ -44,9 +44,9 @@ public class StegControllerTests {
     @Test
     public void testDecodeTextInImage() throws Exception {
         byte[] encoded = encodeImageWithText(normalImg, testMsg);
-        MockMultipartFile image = new MockMultipartFile("image", "encoded.png", "image/png", encoded);
+        MockMultipartFile image = new MockMultipartFile("carrier", "encoded.png", "image/png", encoded);
 
-        mockMvc.perform(multipart("/api/decodeTI").file(image))
+        mockMvc.perform(multipart("/api/text-in-image/decodeTI").file(image))
                 .andExpect(status().isOk())
                 .andExpect(content().string(testMsg));
     }
@@ -64,9 +64,9 @@ public class StegControllerTests {
     public void testDecodeLargeTextInImage() throws Exception {
         String textToEncode = Files.readString(largeText);
         byte[] encoded = encodeImageWithText(normalImg, textToEncode);
-        MockMultipartFile image = new MockMultipartFile("image", "encoded.png", "image/png", encoded);
+        MockMultipartFile image = new MockMultipartFile("carrier", "encoded.png", "image/png", encoded);
 
-        mockMvc.perform(multipart("/api/decodeTI").file(image))
+        mockMvc.perform(multipart("/api/text-in-image/decodeTI").file(image))
                 .andExpect(status().isOk())
                 .andExpect(content().string(textToEncode));
     }
@@ -84,9 +84,9 @@ public class StegControllerTests {
     public void testDecodeLimitTextInImage() throws Exception {
         String textToEncode = Files.readString(normalText);
         byte[] encoded = encodeImageWithText(normalImg, textToEncode);
-        MockMultipartFile image = new MockMultipartFile("image", "encoded.png", "image/png", encoded);
+        MockMultipartFile image = new MockMultipartFile("carrier", "encoded.png", "image/png", encoded);
 
-        mockMvc.perform(multipart("/api/decodeTI").file(image))
+        mockMvc.perform(multipart("/api/text-in-image/decodeTI").file(image))
                 .andExpect(status().isOk())
                 .andExpect(content().string(textToEncode));
     }
@@ -98,7 +98,7 @@ public class StegControllerTests {
         MockMultipartFile text = new MockMultipartFile("text", "", "text/plain", textToEncode.getBytes());
 
         mockMvc.perform(
-                        multipart("/api/encodeTI")
+                        multipart("/api/text-in-image/encodeTI")
                                 .file(image)
                                 .file(text)
                 ).andExpect(status().isBadRequest())
@@ -112,7 +112,7 @@ public class StegControllerTests {
         MockMultipartFile text = new MockMultipartFile("text", "", "text/plain", message.getBytes());
 
         MvcResult result = mockMvc.perform(
-                multipart("/api/encodeTI")
+                multipart("/api/text-in-image/encodeTI")
                         .file(image)
                         .file(text)
         ).andExpect(status().isOk()).andReturn();

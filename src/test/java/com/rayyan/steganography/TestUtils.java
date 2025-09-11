@@ -17,6 +17,6 @@ public class TestUtils {
         String filename = Paths.get(input).getFileName().toString();
         String contentType = filename.endsWith(".png") ? "image/png" : "image/jpeg";
 
-        return new MockMultipartFile("image", filename, contentType, inputStream);
+        return new MockMultipartFile("carrier", filename, contentType, inputStream);
     }
 }
