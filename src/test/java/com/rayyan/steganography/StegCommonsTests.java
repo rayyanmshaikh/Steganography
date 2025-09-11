@@ -17,13 +17,25 @@ public class StegCommonsTests {
 
     private static final String normalImg = "/images/normal.jpg";
 
-
+    /**
+     * Tests that input image verification succeeds for a valid image file.
+     *
+     * @throws IOException if the image cannot be read or validated
+     */
     @Test
     public void testInputVerificationSuccess() throws IOException {
         MultipartFile multipartFile = createInputFile(normalImg);
         ServicesCommons.verifyInput(multipartFile);
     }
 
+    /**
+     * Tests the calculation of the maximum number of storable characters in an
+     * image.
+     * Verifies that the computed value matches the expected value based on image
+     * dimensions.
+     *
+     * @throws IOException if the image cannot be read
+     */
     @Test
     public void testMaxStorableChars() throws IOException {
         MultipartFile multipartFile = createInputFile(normalImg);
@@ -32,6 +44,7 @@ public class StegCommonsTests {
         int expectedPixels = bufferedImage.getHeight() * bufferedImage.getWidth();
         int expectedChars = ((expectedPixels * 3) / 8) - 12;
 
-        assertEquals(expectedChars, ServicesCommons.getMaxStorableChars(multipartFile), "Max storable chars did not match expected value.");
+        assertEquals(expectedChars, ServicesCommons.getMaxStorableChars(multipartFile),
+                "Max storable chars did not match expected value.");
     }
 }

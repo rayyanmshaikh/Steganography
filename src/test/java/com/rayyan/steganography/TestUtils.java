@@ -10,6 +10,13 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 public class TestUtils {
 
+    /**
+     * Creates a MockMultipartFile for the given image resource path.
+     *
+     * @param input the resource path to the image file
+     * @return a MockMultipartFile representing the image
+     * @throws IOException if the image cannot be loaded
+     */
     public static MockMultipartFile createInputFile(String input) throws IOException {
         InputStream inputStream = TestUtils.class.getResourceAsStream(input);
         assertNotNull(inputStream, "Image not found");

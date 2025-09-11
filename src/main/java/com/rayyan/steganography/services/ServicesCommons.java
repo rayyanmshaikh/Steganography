@@ -14,6 +14,13 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 
+
+/**
+ * Utility class providing common validation and conversion methods for steganography services.
+ * <p>
+ * Includes image validation for size and MIME type, and text-to-binary conversion helpers.
+ * Used by service classes to ensure consistent input handling and encoding logic.
+ */
 public class ServicesCommons {
 
     private static final ArrayList<String> mimes = new ArrayList<>(

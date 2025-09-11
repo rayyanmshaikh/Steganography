@@ -17,6 +17,12 @@ import java.io.IOException;
 import static com.rayyan.steganography.services.ServicesCommons.convertTextToBytes;
 import static com.rayyan.steganography.services.ServicesCommons.verifyInput;
 
+/**
+ * Service for encoding and decoding text messages within images using steganography (LSB technique).
+ * <p>
+ * Provides methods to encode a text message into an image and decode a hidden message from an image.
+ * Handles input validation, error management, and response formatting for web requests.
+ */
 @Service
 public class TextInImageService implements StegService {
 
@@ -107,6 +113,13 @@ public class TextInImageService implements StegService {
         }
     }
 
+    /**
+     * Encodes the given text into the image using LSB steganography.
+     *
+     * @param img the BufferedImage to encode the text into
+     * @param text the text message to hide
+     * @return a new BufferedImage with the encoded message
+     */
     private static BufferedImage getEncodedImage(BufferedImage img, String text) {
         logger.info("Encoding image");
         StringBuilder bits = convertTextToBytes(MAGIC_HEADER + text);

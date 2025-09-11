@@ -23,7 +23,7 @@ public class StegControllerTests {
 
     @Autowired
     private MockMvc mockMvc;
-    
+
     private static final String normalImg = "/images/normal.jpg";
 
     private static final Path largeText = Path.of("src/test/resources/text/large_text.txt");
@@ -34,6 +34,12 @@ public class StegControllerTests {
 
     private static final String testMsg = "Hello, this is a test message!";
 
+    /**
+     * Tests encoding a simple text message into an image and verifies the result is
+     * not null or empty.
+     *
+     * @throws Exception if encoding fails
+     */
     @Test
     public void testEncodeTextInImage() throws Exception {
         byte[] encoded = encodeImageWithText(normalImg, testMsg);
@@ -41,6 +47,12 @@ public class StegControllerTests {
         assertTrue(encoded.length > 0);
     }
 
+    /**
+     * Tests decoding a simple text message from an image and verifies the decoded
+     * message matches the original.
+     *
+     * @throws Exception if decoding fails
+     */
     @Test
     public void testDecodeTextInImage() throws Exception {
         byte[] encoded = encodeImageWithText(normalImg, testMsg);
@@ -51,6 +63,12 @@ public class StegControllerTests {
                 .andExpect(content().string(testMsg));
     }
 
+    /**
+     * Tests encoding a large text message into an image and verifies the result is
+     * not null or empty.
+     *
+     * @throws Exception if encoding fails
+     */
     @Test
     public void testEncodeLargeTextInImage() throws Exception {
         String textToEncode = Files.readString(largeText);
@@ -60,6 +78,12 @@ public class StegControllerTests {
         assertTrue(encoded.length > 0);
     }
 
+    /**
+     * Tests decoding a large text message from an image and verifies the decoded
+     * message matches the original.
+     *
+     * @throws Exception if decoding fails
+     */
     @Test
     public void testDecodeLargeTextInImage() throws Exception {
         String textToEncode = Files.readString(largeText);
@@ -71,6 +95,12 @@ public class StegControllerTests {
                 .andExpect(content().string(textToEncode));
     }
 
+    /**
+     * Tests encoding a text message that is at the storage limit for the image and
+     * verifies the result is not null or empty.
+     *
+     * @throws Exception if encoding fails
+     */
     @Test
     public void testEncodeLimitTextInImage() throws Exception {
         String textToEncode = Files.readString(normalText);
@@ -80,6 +110,12 @@ public class StegControllerTests {
         assertTrue(encoded.length > 0);
     }
 
+    /**
+     * Tests decoding a text message that is at the storage limit for the image and
+     * verifies the decoded message matches the original.
+     *
+     * @throws Exception if decoding fails
+     */
     @Test
     public void testDecodeLimitTextInImage() throws Exception {
         String textToEncode = Files.readString(normalText);
@@ -91,6 +127,12 @@ public class StegControllerTests {
                 .andExpect(content().string(textToEncode));
     }
 
+    /**
+     * Tests encoding a text message that exceeds the storage limit for the image
+     * and expects a bad request response.
+     *
+     * @throws Exception if encoding fails
+     */
     @Test
     public void testEncodeExceedLimitTextInImage() throws Exception {
         MockMultipartFile image = createInputFile(normalImg);
@@ -98,15 +140,25 @@ public class StegControllerTests {
         MockMultipartFile text = new MockMultipartFile("text", "", "text/plain", textToEncode.getBytes());
 
         mockMvc.perform(
-                        multipart("/api/text-in-image/encodeTI")
-                                .file(image)
-                                .file(text)
-                ).andExpect(status().isBadRequest())
-                .andExpect(content().string(org.hamcrest.Matchers.containsString("Text length is greater than max storable chars")));
+                multipart("/api/text-in-image/encodeTI")
+                        .file(image)
+                        .file(text))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().string(
+                        org.hamcrest.Matchers.containsString("Text length is greater than max storable chars")));
     }
 
     // Helpers
 
+    /**
+     * Helper method to encode a text message into an image using the controller's
+     * API.
+     *
+     * @param imagePath the path to the image file
+     * @param message   the text message to encode
+     * @return the encoded image as a byte array
+     * @throws Exception if encoding fails
+     */
     private byte[] encodeImageWithText(String imagePath, String message) throws Exception {
         MockMultipartFile image = createInputFile(imagePath);
         MockMultipartFile text = new MockMultipartFile("text", "", "text/plain", message.getBytes());
@@ -114,10 +166,9 @@ public class StegControllerTests {
         MvcResult result = mockMvc.perform(
                 multipart("/api/text-in-image/encodeTI")
                         .file(image)
-                        .file(text)
-        ).andExpect(status().isOk()).andReturn();
+                        .file(text))
+                .andExpect(status().isOk()).andReturn();
 
         return result.getResponse().getContentAsByteArray();
     }
 }
-
