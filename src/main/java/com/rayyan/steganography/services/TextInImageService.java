@@ -24,74 +24,87 @@ public class TextInImageService implements StegService {
 
     private static final Logger logger = LoggerFactory.getLogger(TextInImageService.class);
 
-
     @Override
     public String getType() {
         return "text-in-image";
     }
 
     @Override
-    public ResponseEntity<?> encode(MultipartFile carrier, String text) throws Exception {
+    public ResponseEntity<?> encode(MultipartFile carrier, String text) {
         try {
             verifyInput(carrier, text);
-        } catch (IOException e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
-        }
 
-        BufferedImage img;
-        try {
-            BufferedImage orig = ImageIO.read(carrier.getInputStream());
-            img = new BufferedImage(
-                    orig.getWidth(),
-                    orig.getHeight(),
-                    BufferedImage.TYPE_INT_RGB
-            );
+            final BufferedImage orig = ImageIO.read(carrier.getInputStream());
+
+            if (orig == null) {
+                logger.error("Input image could not be read.");
+                return ResponseEntity.badRequest().body("Input image could not be read.");
+            }
+
+            final BufferedImage img = new BufferedImage(orig.getWidth(), orig.getHeight(), BufferedImage.TYPE_INT_RGB);
             img.getGraphics().drawImage(orig, 0, 0, null);
-        } catch (Exception e) {
+
+            final BufferedImage encoded = getEncodedImage(img, text);
+            logger.info("Writing encoded image");
+
+            try (ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
+                ImageIO.write(encoded, "png", baos);
+                final byte[] imageBytes = baos.toByteArray();
+
+                final HttpHeaders headers = new HttpHeaders();
+                headers.setContentType(MediaType.IMAGE_PNG);
+                headers.setContentLength(imageBytes.length);
+                headers.setContentDispositionFormData("attachment", "encoded.png");
+
+                logger.info("Sending response");
+                return new ResponseEntity<>(imageBytes, headers, HttpStatus.OK);
+
+            } catch (IOException e) {
+                logger.error("Failed to write encoded image", e);
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                        .body("Failed to write image: " + e.getMessage());
+            }
+
+        } catch (IOException e) {
+            logger.error("Encoding failed due to IO error", e);
             return ResponseEntity.badRequest().body(e.getMessage());
+
+        } catch (Exception e) {
+            logger.error("Unexpected error during encoding", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Encoding failed: " + e.getMessage());
         }
-
-        BufferedImage encoded = getEncodedImage(img, text);
-
-        logger.info("Writing encoded image");
-        ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        ImageIO.write(encoded, "png", baos);
-        byte[] imageBytes = baos.toByteArray();
-
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.IMAGE_PNG);
-        headers.setContentLength(imageBytes.length);
-        headers.setContentDispositionFormData("attachment", "encoded.png");
-
-        logger.info("Sending response");
-        return new ResponseEntity<>(imageBytes, headers, HttpStatus.OK);
     }
 
     @Override
-    public ResponseEntity<String> decode(MultipartFile carrier) throws Exception {
+    public ResponseEntity<String> decode(MultipartFile carrier) {
         try {
             verifyInput(carrier);
+
+            final BufferedImage img = ImageIO.read(carrier.getInputStream());
+            if (img == null) {
+                logger.error("Input image could not be read.");
+                return ResponseEntity.badRequest().body("Input image could not be read.");
+            }
+
+            final String decoded = getDecodedImage(img).replace("\0", "");
+            if (!decoded.startsWith(MAGIC_HEADER)) {
+                logger.info("No encoded message found");
+                return ResponseEntity.status(HttpStatus.NO_CONTENT).body("No hidden text found");
+            }
+
+            logger.info("Returning decoded message");
+            final String message = decoded.substring(MAGIC_HEADER.length());
+
+            return ResponseEntity.ok(message);
+
         } catch (IOException e) {
+            logger.error("Decoding failed due to IO error", e);
             return ResponseEntity.badRequest().body(e.getMessage());
-        }
 
-        BufferedImage img;
-        try {
-            img = ImageIO.read(carrier.getInputStream());
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
+            logger.error("Unexpected error during decoding", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Decoding failed: " + e.getMessage());
         }
-
-        String decoded = getDecodedImage(img).replace("\0", "");
-
-        if (!decoded.startsWith(MAGIC_HEADER)) {
-            logger.info("No encoded message found");
-            return ResponseEntity.status(HttpStatus.NO_CONTENT).body("No hidden text found");
-        }
-
-        logger.info("Returning decoded message");
-        String message = decoded.substring(MAGIC_HEADER.length());
-        return ResponseEntity.ok(message);
     }
 
     private static BufferedImage getEncodedImage(BufferedImage img, String text) {
@@ -99,14 +112,13 @@ public class TextInImageService implements StegService {
         StringBuilder bits = convertTextToBytes(MAGIC_HEADER + text);
 
         int msgIdx = 0;
-        int height = img.getHeight();
-        int width = img.getWidth();
-        BufferedImage encoded = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
+        final int height = img.getHeight();
+        final int width = img.getWidth();
+        final BufferedImage encoded = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
 
-        for (int y = 0; y < img.getHeight(); y++) {
-            for (int x = 0; x < img.getWidth(); x++) {
+        outer: for (int y = 0; y < height; y++) {
+            for (int x = 0; x < width; x++) {
                 int rgb = img.getRGB(x, y);
-
                 int r = (rgb >> 16) & 0xff;
                 int g = (rgb >> 8) & 0xff;
                 int b = rgb & 0xff;
@@ -123,8 +135,7 @@ public class TextInImageService implements StegService {
                     b = (b & 0xFE) | (bits.charAt(msgIdx++) - '0');
                 }
 
-                int newRGB = (r << 16) | (g << 8) | b;
-                encoded.setRGB(x, y, newRGB);
+                encoded.setRGB(x, y, (r << 16) | (g << 8) | b);
 
                 if (msgIdx >= bits.length()) {
                     for (int i = x + 1; i < width; i++) {
@@ -137,7 +148,7 @@ public class TextInImageService implements StegService {
                         }
                     }
 
-                    return encoded;
+                    break outer;
                 }
             }
         }
@@ -155,8 +166,8 @@ public class TextInImageService implements StegService {
     private static String getDecodedImage(BufferedImage img) {
         logger.info("Decoding encoded image");
         StringBuilder bits = new StringBuilder();
-        outer:
-        for (int y = 0; y < img.getHeight(); y++) {
+
+        outer: for (int y = 0; y < img.getHeight(); y++) {
             for (int x = 0; x < img.getWidth(); x++) {
                 int rgb = img.getRGB(x, y);
 
