@@ -7,16 +7,11 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
-import org.springframework.web.multipart.MultipartFile;
 
-import javax.imageio.ImageIO;
-import java.awt.image.BufferedImage;
-import java.io.IOException;
-import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 
+import static com.rayyan.steganography.TestUtils.createInputFile;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
@@ -28,11 +23,9 @@ public class StegControllerTests {
 
     @Autowired
     private MockMvc mockMvc;
-    
+
     private static final String normalImg = "/images/normal.jpg";
-    
-    private static final String largeImg = "/images/15MB.jpg";
-    
+
     private static final Path largeText = Path.of("src/test/resources/text/large_text.txt");
 
     private static final Path exceedsLimitText = Path.of("src/test/resources/text/exceeds_normal_limit.txt");
@@ -41,6 +34,12 @@ public class StegControllerTests {
 
     private static final String testMsg = "Hello, this is a test message!";
 
+    /**
+     * Tests encoding a simple text message into an image and verifies the result is
+     * not null or empty.
+     *
+     * @throws Exception if encoding fails
+     */
     @Test
     public void testEncodeTextInImage() throws Exception {
         byte[] encoded = encodeImageWithText(normalImg, testMsg);
@@ -48,16 +47,28 @@ public class StegControllerTests {
         assertTrue(encoded.length > 0);
     }
 
+    /**
+     * Tests decoding a simple text message from an image and verifies the decoded
+     * message matches the original.
+     *
+     * @throws Exception if decoding fails
+     */
     @Test
     public void testDecodeTextInImage() throws Exception {
         byte[] encoded = encodeImageWithText(normalImg, testMsg);
-        MockMultipartFile image = new MockMultipartFile("image", "encoded.png", "image/png", encoded);
+        MockMultipartFile image = new MockMultipartFile("carrier", "encoded.png", "image/png", encoded);
 
-        mockMvc.perform(multipart("/api/decodeTI").file(image))
+        mockMvc.perform(multipart("/api/text-in-image/decodeTI").file(image))
                 .andExpect(status().isOk())
                 .andExpect(content().string(testMsg));
     }
 
+    /**
+     * Tests encoding a large text message into an image and verifies the result is
+     * not null or empty.
+     *
+     * @throws Exception if encoding fails
+     */
     @Test
     public void testEncodeLargeTextInImage() throws Exception {
         String textToEncode = Files.readString(largeText);
@@ -67,17 +78,29 @@ public class StegControllerTests {
         assertTrue(encoded.length > 0);
     }
 
+    /**
+     * Tests decoding a large text message from an image and verifies the decoded
+     * message matches the original.
+     *
+     * @throws Exception if decoding fails
+     */
     @Test
     public void testDecodeLargeTextInImage() throws Exception {
         String textToEncode = Files.readString(largeText);
         byte[] encoded = encodeImageWithText(normalImg, textToEncode);
-        MockMultipartFile image = new MockMultipartFile("image", "encoded.png", "image/png", encoded);
+        MockMultipartFile image = new MockMultipartFile("carrier", "encoded.png", "image/png", encoded);
 
-        mockMvc.perform(multipart("/api/decodeTI").file(image))
+        mockMvc.perform(multipart("/api/text-in-image/decodeTI").file(image))
                 .andExpect(status().isOk())
                 .andExpect(content().string(textToEncode));
     }
 
+    /**
+     * Tests encoding a text message that is at the storage limit for the image and
+     * verifies the result is not null or empty.
+     *
+     * @throws Exception if encoding fails
+     */
     @Test
     public void testEncodeLimitTextInImage() throws Exception {
         String textToEncode = Files.readString(normalText);
@@ -87,17 +110,29 @@ public class StegControllerTests {
         assertTrue(encoded.length > 0);
     }
 
+    /**
+     * Tests decoding a text message that is at the storage limit for the image and
+     * verifies the decoded message matches the original.
+     *
+     * @throws Exception if decoding fails
+     */
     @Test
     public void testDecodeLimitTextInImage() throws Exception {
         String textToEncode = Files.readString(normalText);
         byte[] encoded = encodeImageWithText(normalImg, textToEncode);
-        MockMultipartFile image = new MockMultipartFile("image", "encoded.png", "image/png", encoded);
+        MockMultipartFile image = new MockMultipartFile("carrier", "encoded.png", "image/png", encoded);
 
-        mockMvc.perform(multipart("/api/decodeTI").file(image))
+        mockMvc.perform(multipart("/api/text-in-image/decodeTI").file(image))
                 .andExpect(status().isOk())
                 .andExpect(content().string(textToEncode));
     }
 
+    /**
+     * Tests encoding a text message that exceeds the storage limit for the image
+     * and expects a bad request response.
+     *
+     * @throws Exception if encoding fails
+     */
     @Test
     public void testEncodeExceedLimitTextInImage() throws Exception {
         MockMultipartFile image = createInputFile(normalImg);
@@ -105,53 +140,35 @@ public class StegControllerTests {
         MockMultipartFile text = new MockMultipartFile("text", "", "text/plain", textToEncode.getBytes());
 
         mockMvc.perform(
-                        multipart("/api/encodeTI")
-                                .file(image)
-                                .file(text)
-                ).andExpect(status().isBadRequest())
-                .andExpect(content().string(org.hamcrest.Matchers.containsString("Text length is greater than max storable chars")));
-    }
-
-    @Test
-    public void testInputVerificationSuccess() throws IOException {
-        MultipartFile multipartFile = createInputFile(normalImg);
-        StegController.verifyInput(multipartFile);
-    }
-
-    @Test
-    public void testMaxStorableChars() throws IOException {
-        MultipartFile multipartFile = createInputFile(normalImg);
-
-        BufferedImage bufferedImage = ImageIO.read(multipartFile.getInputStream());
-        int expectedPixels = bufferedImage.getHeight() * bufferedImage.getWidth();
-        int expectedChars = ((expectedPixels * 3) / 8) - 12;
-
-        assertEquals(expectedChars, StegController.getMaxStorableChars(multipartFile), "Max storable chars did not match expected value.");
+                multipart("/api/text-in-image/encodeTI")
+                        .file(image)
+                        .file(text))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().string(
+                        org.hamcrest.Matchers.containsString("Text length is greater than max storable chars")));
     }
 
     // Helpers
 
-    private MockMultipartFile createInputFile(String input) throws IOException {
-        InputStream inputStream = getClass().getResourceAsStream(input);
-        assertNotNull(inputStream, "Image not found");
-
-        String filename = Paths.get(input).getFileName().toString();
-        String contentType = filename.endsWith(".png") ? "image/png" : "image/jpeg";
-
-        return new MockMultipartFile("image", filename, contentType, inputStream);
-    }
-
+    /**
+     * Helper method to encode a text message into an image using the controller's
+     * API.
+     *
+     * @param imagePath the path to the image file
+     * @param message   the text message to encode
+     * @return the encoded image as a byte array
+     * @throws Exception if encoding fails
+     */
     private byte[] encodeImageWithText(String imagePath, String message) throws Exception {
         MockMultipartFile image = createInputFile(imagePath);
         MockMultipartFile text = new MockMultipartFile("text", "", "text/plain", message.getBytes());
 
         MvcResult result = mockMvc.perform(
-                multipart("/api/encodeTI")
+                multipart("/api/text-in-image/encodeTI")
                         .file(image)
-                        .file(text)
-        ).andExpect(status().isOk()).andReturn();
+                        .file(text))
+                .andExpect(status().isOk()).andReturn();
 
         return result.getResponse().getContentAsByteArray();
     }
 }
-
